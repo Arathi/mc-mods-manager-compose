@@ -1,14 +1,16 @@
 package com.undsf.mc.modsmgr
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.undsf.mc.modsmgr.curseforge.ApiClient
 import com.undsf.mc.modsmgr.curseforge.requests.SearchMods
@@ -19,6 +21,42 @@ class MainForm(
     val curseForgeApi: ApiClient
 ) {
     var searchMods = SearchMods()
+
+    val gameVersions = mapOf(
+        "1.7.10" to "1.7.10",
+        "1.12.2" to "1.12.2",
+        "1.14.4" to "1.14.4",
+        "1.16.5" to "1.16.5",
+        "1.18.2" to "1.18.2",
+        "1.19" to "1.19",
+        "1.19.1" to "1.19.1",
+        "1.19.2" to "1.19.2",
+    )
+
+    val sortFields = mapOf(
+        "特性（Featured）" to 1,
+        "流行度（Popularity）" to 2,
+        "最后更新（LastUpdated）" to 3,
+        "名称（Name）" to 4,
+        "作者（Author）" to 5,
+        "总下载量（TotalDownloads）" to 6,
+        "分类（Category）" to 7,
+        "游戏版本（GameVersion）" to 8
+    )
+
+    val sortOrders = mapOf(
+        "升序" to "asc",
+        "降序" to "desc"
+    )
+
+    val modLoaders = mapOf(
+        "任意" to 0,
+        "Forge" to 1,
+        "Cauldron" to 2,
+        "LiteLoader" to 3,
+        "Fabric" to 4,
+        "Quilt" to 5
+    )
 
     private fun onDdmGameVersionChanged(version: String) {
         searchMods.gameVersion = version
@@ -46,7 +84,7 @@ class MainForm(
             text = text.value,
             modifier = Modifier.clickable(true, onClick = {
                 expended.value = true
-            })
+            }).background(Color.Gray)
         )
 
         DropdownMenu(
@@ -81,13 +119,13 @@ class MainForm(
     @Composable
     fun DropDownButton(bind: String, items: Map<String, Any?>, defaultText: String = "请选择") {
         val expended = remember { mutableStateOf(false) }
-        val menuItems = remember { mutableStateOf(mutableMapOf<String, Any?>()) }
+        val menuItems = remember { mutableStateMapOf<String, Any?>() }
         val text = remember { mutableStateOf(defaultText) }
 
         if (items.isNotEmpty()) {
-            menuItems.value.clear()
+            menuItems.clear()
             for (entry in items.entries) {
-                menuItems.value[entry.key] = entry.value
+                menuItems[entry.key] = entry.value
             }
         }
 
@@ -101,7 +139,7 @@ class MainForm(
                     expended.value = false
                 }
             ) {
-                for (entry in menuItems.value.entries) {
+                for (entry in menuItems.entries) {
                     val display = entry.key
                     var value = entry.value
                     if (value == null) {
@@ -178,8 +216,8 @@ class MainForm(
     }
 
     @Composable
-    fun ModInfoList(mods: List<Mod>) {
-        LazyRow {
+    fun ModInfoList(mods: SnapshotStateList<Mod>) {
+        LazyColumn {
             items(mods) {
                 ModInfo(it)
             }
@@ -190,43 +228,8 @@ class MainForm(
     fun app() {
         val switchSearchBySlug = remember { mutableStateOf(false) }
         val searchBy = remember { mutableStateOf("关键字") }
-        val searchResults = remember { mutableStateOf(mutableListOf<Mod>()) }
+        val searchResults = remember { mutableStateListOf<Mod>() }
 
-        val gameVersions = mapOf(
-            "1.7.10" to "1.7.10",
-            "1.12.2" to "1.12.2",
-            "1.14.4" to "1.14.4",
-            "1.16.5" to "1.16.5",
-            "1.18.2" to "1.18.2",
-            "1.19" to "1.19",
-            "1.19.1" to "1.19.1",
-            "1.19.2" to "1.19.2",
-        )
-
-        val sortFields = mapOf(
-            "特性（Featured）" to 1,
-            "流行度（Popularity）" to 2,
-            "最后更新（LastUpdated）" to 3,
-            "名称（Name）" to 4,
-            "作者（Author）" to 5,
-            "总下载量（TotalDownloads）" to 6,
-            "分类（Category）" to 7,
-            "游戏版本（GameVersion）" to 8
-        )
-
-        val sortOrders = mapOf(
-            "升序" to "asc",
-            "降序" to "desc"
-        )
-
-        val modLoaders = mapOf(
-            "任意" to 0,
-            "Forge" to 1,
-            "Cauldron" to 2,
-            "LiteLoader" to 3,
-            "Fabric" to 4,
-            "Quilt" to 5
-        )
 
         MaterialTheme {
             Row {
@@ -277,7 +280,7 @@ class MainForm(
                                 dateReleased = "2022-08-16T17:20:00Z"
                             )
 
-                            searchResults.value.add(mod)
+                            searchResults.add(mod)
                             println("增加数据")
                         }) {
                             Text("搜索")
@@ -286,7 +289,7 @@ class MainForm(
 
                     Divider()
                     Row {
-                        ModInfoList(searchResults.value)
+                        ModInfoList(searchResults)
                     }
                 }
             }

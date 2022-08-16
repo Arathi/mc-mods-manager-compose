@@ -10,7 +10,7 @@ group = "com.undsf.mc"
 version = "1.0.0-SNAPSHOT"
 
 repositories {
-    maven("https://maven.aliyun.com/repository/public/")
+    // maven("https://maven.aliyun.com/repository/public/")
     google()
     mavenCentral()
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
@@ -33,7 +33,6 @@ kotlin {
         }
         val jvmTest by getting {
             dependencies {
-                // implementation("org.jetbrains.kotlin:kotlin-test-junit5:1.6.10")
                 implementation(kotlin("test"))
             }
         }

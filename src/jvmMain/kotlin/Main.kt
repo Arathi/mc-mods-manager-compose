@@ -10,7 +10,7 @@ fun main(args: Array<String>) = application {
 
     for (arg in args) {
         if ("--gui" == arg) {
-            println("启用窗口模式")
+            println("窗口模式")
             gui = true
         }
 
@@ -29,6 +29,6 @@ fun main(args: Array<String>) = application {
         }
     }
     else {
-        println("不启用窗口模式")
+        println("命令行模式")
     }
 }
