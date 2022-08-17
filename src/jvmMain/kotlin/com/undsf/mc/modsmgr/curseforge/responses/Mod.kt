@@ -17,7 +17,7 @@ data class Mod(
     var logo: ModAsset? = null,
     // screenshots
     var mainFileId: Int? = null,
-    // var latestFiles: List<ModFile>?,
+    var latestFiles: List<ModFile>? = null,
     // var latestFilesIndexes: List<FileIndex>?,
     var dateCreated: String? = null,
     var dateModified: String? = null,

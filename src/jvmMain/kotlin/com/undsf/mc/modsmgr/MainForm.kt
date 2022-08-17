@@ -1,21 +1,40 @@
 package com.undsf.mc.modsmgr
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.snapshots.SnapshotStateMap
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.VerticalAlignmentLine
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogState
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import com.undsf.mc.modsmgr.curseforge.ApiClient
 import com.undsf.mc.modsmgr.curseforge.requests.SearchMods
 import com.undsf.mc.modsmgr.curseforge.responses.Mod
 import com.undsf.mc.modsmgr.curseforge.responses.ModAuthor
+import com.undsf.mc.modsmgr.curseforge.responses.ModFile
+import com.undsf.mc.modsmgr.ui.ComboBox
+import com.undsf.mc.modsmgr.ui.ComboBoxData
+import org.w3c.dom.Text
 
 class MainForm(
     val curseForgeApi: ApiClient
@@ -68,7 +87,8 @@ class MainForm(
     }
 
     @Composable
-    fun DropDownTextBox(bind: String, items: Map<String, Any?>, defaultText: String = "请选择") {
+    @Deprecated("使用ComboBox替代")
+    fun DropDownList(bind: String, items: Map<String, Any?>, defaultText: String = "请选择", width: Dp = 100.dp) {
         val expended = remember { mutableStateOf(false) }
         val menuItems = remember { mutableStateOf(mutableMapOf<String, Any?>()) }
         val text = remember { mutableStateOf(defaultText) }
@@ -80,82 +100,101 @@ class MainForm(
             }
         }
 
-        Text(
-            text = text.value,
-            modifier = Modifier.clickable(true, onClick = {
-                expended.value = true
-            }).background(Color.Gray)
-        )
+        fun onDDLClick() {
+            expended.value = !expended.value
+        }
 
-        DropdownMenu(
-            expended.value,
-            onDismissRequest = {
-                expended.value = false
-            }
-        ) {
-            for (entry in menuItems.value.entries) {
-                val display = entry.key
-                var value = entry.value
-                if (value == null) {
-                    value = display
-                }
-                DropdownMenuItem(onClick = {
-                    when (bind) {
-                        "gameVersion" -> searchMods.gameVersion = value as String?
-                        "sortField" -> searchMods.sortField = value as Int?
-                        "sortOrder" -> searchMods.sortOrder = value as String?
-                        "modLoaderType" -> searchMods.modLoaderType = value as Int?
+        Row(modifier = Modifier.padding(end = 10.dp)) {
+            Row(modifier = Modifier.border(1.dp, Color.Gray).padding(start = 5.dp, top = 3.dp)) {
+                Text(
+                    text = text.value,
+                    modifier = Modifier
+                        .clickable(true, onClick = ::onDDLClick)
+                        .width(width)
+                )
+                Icon(
+                    Icons.Default.ArrowDropDown,
+                    "",
+                    modifier = Modifier
+                        .clickable(true, onClick = ::onDDLClick)
+                )
+
+                DropdownMenu(
+                    expended.value,
+                    onDismissRequest = {
+                        expended.value = false
                     }
-                    expended.value = false
-                    text.value = display
-                }) {
-                    Text(display)
+                ) {
+                    for (entry in menuItems.value.entries) {
+                        val display = entry.key
+                        var value = entry.value
+                        if (value == null) {
+                            value = display
+                        }
+                        DropdownMenuItem(onClick = {
+                            when (bind) {
+                                "gameVersion" -> searchMods.gameVersion = value as String?
+                                "sortField" -> searchMods.sortField = value as Int?
+                                "sortOrder" -> searchMods.sortOrder = value as String?
+                                "modLoaderType" -> searchMods.modLoaderType = value as Int?
+                            }
+                            expended.value = false
+                            text.value = display
+                        }) {
+                            Text(display)
+                        }
+                    }
                 }
             }
         }
     }
 
-    @Deprecated("用DropDownTextBox替代")
     @Composable
-    fun DropDownButton(bind: String, items: Map<String, Any?>, defaultText: String = "请选择") {
-        val expended = remember { mutableStateOf(false) }
-        val menuItems = remember { mutableStateMapOf<String, Any?>() }
-        val text = remember { mutableStateOf(defaultText) }
+    fun ModDownloadDialog(mod: Mod, showDialog: MutableState<Boolean>) {
+        val dialogState = remember { mutableStateOf(DialogState()) }
+        val downloadUrl = remember { mutableStateOf("") }
 
-        if (items.isNotEmpty()) {
-            menuItems.clear()
-            for (entry in items.entries) {
-                menuItems[entry.key] = entry.value
+        fun onModVersionChanged(index: Int, text: String, value: Any) {
+            if (value is ModFile) {
+                val url = value.downloadUrl
+                if (url != null) {
+                    downloadUrl.value = url
+                    println("更新下载地址为：${url}")
+                }
             }
         }
 
-        Button(onClick = {
-            expended.value = true
-        }) {
-            Text(text.value)
-            DropdownMenu(
-                expended.value,
-                onDismissRequest = {
-                    expended.value = false
-                }
+        if (showDialog.value) {
+            Dialog(
+                onCloseRequest = {
+                    println("关闭下载对话框")
+                    showDialog.value = false
+                },
+                state = dialogState.value
             ) {
-                for (entry in menuItems.entries) {
-                    val display = entry.key
-                    var value = entry.value
-                    if (value == null) {
-                        value = display
+                val comboBoxModVersion = remember {
+                    mutableStateOf(
+                        ComboBoxData()
+                    )
+                }
+
+                if (mod.latestFiles != null) {
+                    for (file in mod.latestFiles!!) {
+                        comboBoxModVersion.value.add(file.displayName!!, file)
                     }
-                    DropdownMenuItem(onClick = {
-                        when (bind) {
-                            "gameVersion" -> searchMods.gameVersion = value as String?
-                            "sortField" -> searchMods.sortField = value as Int?
-                            "sortOrder" -> searchMods.sortOrder = value as String?
-                            "modLoaderType" -> searchMods.modLoaderType = value as Int?
+                }
+
+                Column {
+                    Row {
+                        Text("Mod版本")
+                        ComboBox(comboBoxModVersion, ::onModVersionChanged)
+                    }
+                    Column(horizontalAlignment = Alignment.End, modifier = Modifier.fillMaxWidth()) {
+                        Button(onClick = {
+                            println("下载MOD：${downloadUrl.value}")
+                        }) {
+                            Text("下载")
                         }
-                        expended.value = false
-                        text.value = display
-                    }) {
-                        Text(display)
                     }
                 }
             }
@@ -164,6 +203,8 @@ class MainForm(
 
     @Composable
     fun ModInfo(mod: Mod) {
+        val dialogVisable = remember { mutableStateOf(false) }
+
         var authorName: String = "Unknown"
         if (mod.authors != null) {
             if ( mod.authors!!.isNotEmpty()) {
@@ -194,98 +235,190 @@ class MainForm(
             updatedAt = mod.dateReleased!!.substring(0, 10)
         }
 
-        Column {
-            Row {
-                Row {
-                    Text(authorName)
-                    Text(" / ")
-                    Text(mod.name!!)
-                }
-                Row {
-                    Text(mod.id.toString())
-                    Text(" / ")
-                    Text(mod.slug!!)
-                }
+        Row (modifier = Modifier.border(1.dp, Color.Gray).fillMaxWidth().padding(5.dp).clickable(true, onClick = {
+            dialogVisable.value = true
+        })) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxHeight().padding(end = 10.dp)) {
+                Icon(
+                    Icons.Default.Add, "",
+                    modifier = Modifier.background(Color.Black).size(48.dp)
+                )
             }
-            Row {
-                Text("下载量：${downloadCount}${downloadCountUnit}")
-                Text("创建时间：${createdAt}")
-                Text("更新时间：${updatedAt}")
+
+            Column {
+                Row {
+                    Row {
+                        Text(authorName)
+                        Text(" / ")
+                        Text(mod.name!!, modifier = Modifier.padding(end = 10.dp))
+
+                        Text("id: ${mod.id.toString()}", color = Color.Gray, modifier = Modifier.padding(end = 10.dp))
+                        Text("slug: ${mod.slug!!}", color = Color.Gray)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    }
+                }
+                Row {
+                    Text("下载量：${downloadCount}${downloadCountUnit}", modifier = Modifier.padding(end = 5.dp))
+                    Text("创建时间：${createdAt}", modifier = Modifier.padding(end = 5.dp))
+                    Text("更新时间：${updatedAt}")
+                }
+                Row {
+                    Text(mod.summary!!)
+                }
             }
         }
+
+        ModDownloadDialog(mod, dialogVisable)
     }
 
     @Composable
     fun ModInfoList(mods: SnapshotStateList<Mod>) {
-        LazyColumn {
+        LazyColumn() {
             items(mods) {
-                ModInfo(it)
+                Column(modifier = Modifier.padding(bottom = 3.dp)) {
+                    ModInfo(it)
+                }
             }
         }
     }
 
     @Composable
     fun app() {
-        val switchSearchBySlug = remember { mutableStateOf(false) }
+        val searchModsConditions = remember { mutableStateOf(SearchMods()) }
         val searchBy = remember { mutableStateOf("关键字") }
         val searchResults = remember { mutableStateListOf<Mod>() }
 
+        val comboBoxClassId = remember { mutableStateOf(
+            ComboBoxData(
+                mutableStateListOf("MOD", "材质", "地图", "音效"),
+                mutableStateListOf(1, 2, 3, 4)
+            )
+        ) }
+
+        val comboBoxGameVersion = remember { mutableStateOf(
+            ComboBoxData(
+                gameVersions,
+                "请选择MC版本",
+                128.dp
+            )
+        ) }
+
+        val comboBoxSortField = remember {mutableStateOf(
+            ComboBoxData(
+                sortFields,
+                "请选择排序字段",
+                240.dp
+            )
+        ) }
+
+        val comboBoxSortOrder = remember {mutableStateOf(
+            ComboBoxData(
+                sortOrders,
+                "请选择排序方式",
+                80.dp,
+                1
+            )
+        ) }
+
+        val comboBoxModLoaderType = remember {mutableStateOf(
+            ComboBoxData(
+                modLoaders,
+                "请选择Mod加载器",
+                100.dp,
+                0
+            )
+        ) }
+
+        fun onClassIdChanged(index: Int, text: String, value: Any) {
+            println("classId选项改变：index=${index}, 显示内容=${text}, 对应值=${value}")
+            searchModsConditions.value.categoryId = value as Int
+        }
+
+        fun onGameVersionChanged(index: Int, text: String, value: Any) {
+            println("gameVersion选项改变：index=${index}, 显示内容=${text}, 对应值=${value}")
+            searchModsConditions.value.gameVersion = value as String
+        }
+
+        fun onSortFieldChanged(index: Int, text: String, value: Any) {
+            println("sortField选项改变：index=${index}, 显示内容=${text}, 对应值=${value}")
+            searchModsConditions.value.sortField = value as Int
+        }
+
+        fun onSortOrderChanged(index: Int, text: String, value: Any) {
+            println("sortOrder选项改变：index=${index}, 显示内容=${text}, 对应值=${value}")
+            searchModsConditions.value.sortOrder = value as String
+        }
+
+        fun onModLoaderTypeChanged(index: Int, text: String, value: Any) {
+            println("modLoaderType选项改变：index=${index}, 显示内容=${text}, 对应值=${value}")
+            searchModsConditions.value.modLoaderType = value as Int
+        }
 
         MaterialTheme {
-            Row {
+            Row(modifier = Modifier.padding(10.dp)) {
                 Column {
-                    Row {
-                        // Text("分类")
-                        // Text("classId")
-                        // Text("categoryId")
-                    }
-                    Row {
-                        Text("游戏版本")
-                        DropDownTextBox("gameVersion", gameVersions, "请选择游戏版本")
+                    // Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
+                    //     Text("分类", modifier = Modifier.width(100.dp))
+                    //     ComboBox(
+                    //         bind = comboBoxClassId,
+                    //         onSelectedIndexChanged = ::onClassIdChanged
+                    //     )
+                    // }
+
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
+                        Text("游戏版本", modifier = Modifier.width(100.dp))
+                        ComboBox(comboBoxGameVersion, ::onGameVersionChanged)
                         // Text("gameVersionTypeId")
                     }
-                    Row {
-                        // Text("通过${searchBy.value}查找")
+
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
+                        Text(searchBy.value, modifier = Modifier.width(100.dp).clickable(true, onClick = {
+                            searchBy.value = if (searchBy.value == "slug") "关键字" else "slug"
+                        }))
                         TextField("jei",
                             modifier = Modifier.width(100.dp).height(48.dp),
                             onValueChange = {}
                         )
-                        Switch(switchSearchBySlug.value, onCheckedChange = {
-                            switchSearchBySlug.value = it;
-                            searchBy.value = if (it) "slug" else "关键字"
-                        })
-                        Text("通过${searchBy.value}查找")
                     }
-                    Row {
-                        Text("排序规则")
-                        // Text("sortField")
-                        // Text("sortOrder")
-                        DropDownTextBox("sortField", sortFields, "请选择排序字段")
-                        DropDownTextBox("sortOrder", sortOrders, "请选择顺序")
-                    }
-                    Row {
-                        Text("MOD加载器")
-                        DropDownTextBox("modLoaderType", modLoaders, "请选择MOD加载器")
-                    }
-                    Row {
-                        Button(onClick = {
-                            val mod = Mod(
-                                id = 1,
-                                name = "Just Enough Items (JEI)",
-                                slug = "jei",
-                                authors = listOf(ModAuthor(name = "mezz")),
-                                downloadCount = 183_600_000,
-                                dateCreated = "2012-08-16T17:20:00Z",
-                                dateModified = "2022-08-16T17:20:00Z",
-                                dateReleased = "2022-08-16T17:20:00Z"
-                            )
 
-                            searchResults.add(mod)
-                            println("增加数据")
-                        }) {
-                            Text("搜索")
-                        }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
+                        Text("排序规则", modifier = Modifier.width(100.dp))
+                        ComboBox(comboBoxSortField, ::onSortFieldChanged)
+                        ComboBox(comboBoxSortOrder, ::onSortOrderChanged)
                     }
+
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
+                        Text("MOD加载器", modifier = Modifier.width(100.dp))
+                        ComboBox(comboBoxModLoaderType, ::onModLoaderTypeChanged)
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                         Row {
+                             Button(onClick = {
+                                 val mod = Mod(
+                                     id = 1,
+                                     name = "Just Enough Items (JEI)",
+                                     slug = "jei",
+                                     summary = "View Items and Recipes",
+                                     authors = listOf(ModAuthor(name = "mezz")),
+                                     latestFiles = listOf(
+                                         ModFile(1, 1, "jei-1.0.jar", "jei-1.0.jar", "http://127.0.0.1/", listOf("1.19")),
+                                         ModFile(2, 1, "jei-1.1.jar", "jei-1.1.jar", "http://127.0.0.1/", listOf("1.19")),
+                                     ),
+                                     downloadCount = 183_600_000,
+                                     dateCreated = "2012-08-16T17:20:00Z",
+                                     dateModified = "2022-08-16T17:20:00Z",
+                                     dateReleased = "2022-08-16T17:20:00Z"
+                                 )
+
+                                 searchResults.add(mod)
+                                 println("增加数据")
+                             }) {
+                                 Text("搜索")
+                             }
+                         }
+                     }
 
                     Divider()
                     Row {
