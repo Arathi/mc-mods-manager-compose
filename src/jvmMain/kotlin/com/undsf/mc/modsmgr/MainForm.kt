@@ -39,8 +39,6 @@ import org.w3c.dom.Text
 class MainForm(
     val curseForgeApi: ApiClient
 ) {
-    var searchMods = SearchMods()
-
     val gameVersions = mapOf(
         "1.7.10" to "1.7.10",
         "1.12.2" to "1.12.2",
@@ -76,78 +74,6 @@ class MainForm(
         "Fabric" to 4,
         "Quilt" to 5
     )
-
-    private fun onDdmGameVersionChanged(version: String) {
-        searchMods.gameVersion = version
-    }
-
-    private fun onBtnSearchModsClicked() {
-        println("点击搜索按钮")
-        curseForgeApi.searchMods(searchMods)
-    }
-
-    @Composable
-    @Deprecated("使用ComboBox替代")
-    fun DropDownList(bind: String, items: Map<String, Any?>, defaultText: String = "请选择", width: Dp = 100.dp) {
-        val expended = remember { mutableStateOf(false) }
-        val menuItems = remember { mutableStateOf(mutableMapOf<String, Any?>()) }
-        val text = remember { mutableStateOf(defaultText) }
-
-        if (items.isNotEmpty()) {
-            menuItems.value.clear()
-            for (entry in items.entries) {
-                menuItems.value[entry.key] = entry.value
-            }
-        }
-
-        fun onDDLClick() {
-            expended.value = !expended.value
-        }
-
-        Row(modifier = Modifier.padding(end = 10.dp)) {
-            Row(modifier = Modifier.border(1.dp, Color.Gray).padding(start = 5.dp, top = 3.dp)) {
-                Text(
-                    text = text.value,
-                    modifier = Modifier
-                        .clickable(true, onClick = ::onDDLClick)
-                        .width(width)
-                )
-                Icon(
-                    Icons.Default.ArrowDropDown,
-                    "",
-                    modifier = Modifier
-                        .clickable(true, onClick = ::onDDLClick)
-                )
-
-                DropdownMenu(
-                    expended.value,
-                    onDismissRequest = {
-                        expended.value = false
-                    }
-                ) {
-                    for (entry in menuItems.value.entries) {
-                        val display = entry.key
-                        var value = entry.value
-                        if (value == null) {
-                            value = display
-                        }
-                        DropdownMenuItem(onClick = {
-                            when (bind) {
-                                "gameVersion" -> searchMods.gameVersion = value as String?
-                                "sortField" -> searchMods.sortField = value as Int?
-                                "sortOrder" -> searchMods.sortOrder = value as String?
-                                "modLoaderType" -> searchMods.modLoaderType = value as Int?
-                            }
-                            expended.value = false
-                            text.value = display
-                        }) {
-                            Text(display)
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     @Composable
     fun ModDownloadDialog(mod: Mod, showDialog: MutableState<Boolean>) {
@@ -285,9 +211,15 @@ class MainForm(
 
     @Composable
     fun app() {
-        val searchModsConditions = remember { mutableStateOf(SearchMods()) }
+        val searchModsConditions = remember { mutableStateOf(SearchMods(
+            gameVersion = "1.19.2",
+            sortField = 2,
+            sortOrder = "desc",
+            modLoaderType = 1
+        )) }
         val searchBy = remember { mutableStateOf("关键字") }
         val searchResults = remember { mutableStateListOf<Mod>() }
+        val textFieldkeyWord = remember { mutableStateOf("jei") }
 
         val comboBoxClassId = remember { mutableStateOf(
             ComboBoxData(
@@ -376,9 +308,11 @@ class MainForm(
                         Text(searchBy.value, modifier = Modifier.width(100.dp).clickable(true, onClick = {
                             searchBy.value = if (searchBy.value == "slug") "关键字" else "slug"
                         }))
-                        TextField("jei",
+                        TextField(textFieldkeyWord.value,
                             modifier = Modifier.width(100.dp).height(48.dp),
-                            onValueChange = {}
+                            onValueChange = {
+                                textFieldkeyWord.value = it
+                            }
                         )
                     }
 
@@ -396,24 +330,17 @@ class MainForm(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                          Row {
                              Button(onClick = {
-                                 val mod = Mod(
-                                     id = 1,
-                                     name = "Just Enough Items (JEI)",
-                                     slug = "jei",
-                                     summary = "View Items and Recipes",
-                                     authors = listOf(ModAuthor(name = "mezz")),
-                                     latestFiles = listOf(
-                                         ModFile(1, 1, "jei-1.0.jar", "jei-1.0.jar", "http://127.0.0.1/", listOf("1.19")),
-                                         ModFile(2, 1, "jei-1.1.jar", "jei-1.1.jar", "http://127.0.0.1/", listOf("1.19")),
-                                     ),
-                                     downloadCount = 183_600_000,
-                                     dateCreated = "2012-08-16T17:20:00Z",
-                                     dateModified = "2022-08-16T17:20:00Z",
-                                     dateReleased = "2022-08-16T17:20:00Z"
-                                 )
-
-                                 searchResults.add(mod)
-                                 println("增加数据")
+                                 if (searchBy.value == "slug") {
+                                     searchModsConditions.value.slug = if (textFieldkeyWord.value != "") textFieldkeyWord.value else null
+                                     searchModsConditions.value.searchFilter = null
+                                 }
+                                 else {
+                                     searchModsConditions.value.slug = null
+                                     searchModsConditions.value.searchFilter = if (textFieldkeyWord.value != "") textFieldkeyWord.value else null
+                                 }
+                                 val mods = curseForgeApi.searchMods(searchModsConditions.value)
+                                 searchResults.clear()
+                                 searchResults.addAll(mods)
                              }) {
                                  Text("搜索")
                              }
