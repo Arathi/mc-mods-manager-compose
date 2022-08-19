@@ -8,18 +8,22 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.materialIcon
+import androidx.compose.material.icons.materialPath
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.VerticalAlignmentLine
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -32,9 +36,12 @@ import com.undsf.mc.modsmgr.curseforge.requests.SearchMods
 import com.undsf.mc.modsmgr.curseforge.responses.Mod
 import com.undsf.mc.modsmgr.curseforge.responses.ModAuthor
 import com.undsf.mc.modsmgr.curseforge.responses.ModFile
-import com.undsf.mc.modsmgr.ui.ComboBox
-import com.undsf.mc.modsmgr.ui.ComboBoxData
-import org.w3c.dom.Text
+import com.undsf.mc.modsmgr.ui.AsyncImage
+import com.undsf.mc.modsmgr.ui.components.ComboBox
+import com.undsf.mc.modsmgr.ui.components.ComboBoxData
+import com.undsf.mc.modsmgr.ui.components.IconButton
+import com.undsf.mc.modsmgr.ui.components.SearchTextField
+import com.undsf.mc.modsmgr.ui.loadImageBitmap
 
 class MainForm(
     val curseForgeApi: ApiClient
@@ -127,9 +134,12 @@ class MainForm(
         }
     }
 
+    @OptIn(ExperimentalMaterialApi::class)
     @Composable
-    fun ModInfo(mod: Mod) {
-        val dialogVisable = remember { mutableStateOf(false) }
+    fun ModInfo(mod: Mod, displayDownloadArea: Boolean = false) {
+        val alertVisable = remember { mutableStateOf(false) }
+        val detailsVisable = remember { mutableStateOf(false) }
+        val selectedModFile = remember { mutableStateOf<ModFile?>(null) }
 
         var authorName: String = "Unknown"
         if (mod.authors != null) {
@@ -162,27 +172,33 @@ class MainForm(
         }
 
         Row (modifier = Modifier.border(1.dp, Color.Gray).fillMaxWidth().padding(5.dp).clickable(true, onClick = {
-            dialogVisable.value = true
+            detailsVisable.value = true
         })) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxHeight().padding(end = 10.dp)) {
-                Icon(
-                    Icons.Default.Add, "",
-                    modifier = Modifier.background(Color.Black).size(48.dp)
+            Row(modifier = Modifier.width(80.dp)
+                                    .padding(end = 10.dp)) {
+                AsyncImage(
+                    load = {
+                        loadImageBitmap(mod.logo!!.url!!)
+                    },
+                    painterFor = {
+                        remember {
+                            BitmapPainter(it)
+                        }
+                    },
+                    contentDescription = mod.name!!,
+                    modifier = Modifier.width(80.dp).fillMaxHeight()
                 )
             }
 
             Column {
                 Row {
-                    Row {
-                        Text(authorName)
-                        Text(" / ")
-                        Text(mod.name!!, modifier = Modifier.padding(end = 10.dp))
-
-                        Text("id: ${mod.id.toString()}", color = Color.Gray, modifier = Modifier.padding(end = 10.dp))
-                        Text("slug: ${mod.slug!!}", color = Color.Gray)
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    }
+                    Text(authorName)
+                    Text(" / ")
+                    Text(mod.name!!)
+                }
+                Row {
+                    Text("id: ${mod.id.toString()}", color = Color.Gray, modifier = Modifier.padding(end = 10.dp))
+                    Text("slug: ${mod.slug!!}", color = Color.Gray)
                 }
                 Row {
                     Text("下载量：${downloadCount}${downloadCountUnit}", modifier = Modifier.padding(end = 5.dp))
@@ -193,17 +209,91 @@ class MainForm(
                     Text(mod.summary!!)
                 }
             }
+
+            if (displayDownloadArea) {
+                val latestFiles = remember {
+                    mutableStateOf(
+                        ComboBoxData()
+                    )
+                }
+
+                if (mod.latestFiles != null) {
+                    for (modFile in mod.latestFiles!!) {
+                        latestFiles.value.add(modFile.displayName!!, mod)
+                    }
+                }
+
+                fun onModVersionChanged(index: Int, text: String, value: Any) {
+                    println("选取的MOD版本发生变动：${text}")
+                    if (value is ModFile) {
+                        selectedModFile.value = value
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    ComboBox(
+                        latestFiles,
+                        ::onModVersionChanged,
+                        modifier = Modifier.padding(end = 0.dp)
+                    )
+
+                    Row {
+                        IconButton(
+                            Icons.Filled.Download,
+                            {
+                                if (selectedModFile.value == null) {
+                                    println("未选择版本")
+                                }
+                                else {
+                                    println("开始下载")
+                                }
+                            }
+                        )
+                    }
+                }
+            }
         }
 
-        ModDownloadDialog(mod, dialogVisable)
+        ModDownloadDialog(mod, detailsVisable)
+        if (alertVisable.value) {
+            AlertDialog(
+                onDismissRequest = {
+                    alertVisable.value = false
+                },
+                title = {
+                    Text("警告")
+                },
+                text = {
+                    Text("未选择MOD文件版本")
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        alertVisable.value = false
+                    }) {
+                        Text("确定")
+                    }
+                },
+                dismissButton = {
+                    Button(onClick = {
+                        alertVisable.value = false
+                    }) {
+                        Text("关闭")
+                    }
+                }
+            )
+        }
     }
 
     @Composable
     fun ModInfoList(mods: SnapshotStateList<Mod>) {
         LazyColumn() {
             items(mods) {
-                Column(modifier = Modifier.padding(bottom = 3.dp)) {
-                    ModInfo(it)
+                BoxWithConstraints(modifier = Modifier.padding(bottom = 3.dp)) {
+                    val displayDownloadArea = this.maxWidth >= 512.dp
+                    ModInfo(it, displayDownloadArea)
                 }
             }
         }
@@ -290,30 +380,38 @@ class MainForm(
         MaterialTheme {
             Row(modifier = Modifier.padding(10.dp)) {
                 Column {
-                    // Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
-                    //     Text("分类", modifier = Modifier.width(100.dp))
-                    //     ComboBox(
-                    //         bind = comboBoxClassId,
-                    //         onSelectedIndexChanged = ::onClassIdChanged
-                    //     )
-                    // }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
+                        Text(searchBy.value, modifier = Modifier.width(100.dp).clickable(true, onClick = {
+                            searchBy.value = if (searchBy.value == "slug") "关键字" else "slug"
+                        }))
+
+                        fun onSearchBtnClicked() {
+                            if (searchBy.value == "slug") {
+                                searchModsConditions.value.slug = if (textFieldkeyWord.value != "") textFieldkeyWord.value else null
+                                searchModsConditions.value.searchFilter = null
+                            }
+                            else {
+                                searchModsConditions.value.slug = null
+                                searchModsConditions.value.searchFilter = if (textFieldkeyWord.value != "") textFieldkeyWord.value else null
+                            }
+                            val mods = curseForgeApi.searchMods(searchModsConditions.value)
+                            searchResults.clear()
+                            searchResults.addAll(mods)
+                        }
+
+                        SearchTextField(
+                            textFieldkeyWord.value,
+                            onValueChange= {
+                                textFieldkeyWord.value = it
+                            },
+                            onIconClick = ::onSearchBtnClicked
+                        )
+                    }
 
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
                         Text("游戏版本", modifier = Modifier.width(100.dp))
                         ComboBox(comboBoxGameVersion, ::onGameVersionChanged)
                         // Text("gameVersionTypeId")
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
-                        Text(searchBy.value, modifier = Modifier.width(100.dp).clickable(true, onClick = {
-                            searchBy.value = if (searchBy.value == "slug") "关键字" else "slug"
-                        }))
-                        TextField(textFieldkeyWord.value,
-                            modifier = Modifier.width(100.dp).height(48.dp),
-                            onValueChange = {
-                                textFieldkeyWord.value = it
-                            }
-                        )
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
@@ -327,30 +425,8 @@ class MainForm(
                         ComboBox(comboBoxModLoaderType, ::onModLoaderTypeChanged)
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                         Row {
-                             Button(onClick = {
-                                 if (searchBy.value == "slug") {
-                                     searchModsConditions.value.slug = if (textFieldkeyWord.value != "") textFieldkeyWord.value else null
-                                     searchModsConditions.value.searchFilter = null
-                                 }
-                                 else {
-                                     searchModsConditions.value.slug = null
-                                     searchModsConditions.value.searchFilter = if (textFieldkeyWord.value != "") textFieldkeyWord.value else null
-                                 }
-                                 val mods = curseForgeApi.searchMods(searchModsConditions.value)
-                                 searchResults.clear()
-                                 searchResults.addAll(mods)
-                             }) {
-                                 Text("搜索")
-                             }
-                         }
-                     }
-
                     Divider()
-                    Row {
-                        ModInfoList(searchResults)
-                    }
+                    ModInfoList(searchResults)
                 }
             }
         }

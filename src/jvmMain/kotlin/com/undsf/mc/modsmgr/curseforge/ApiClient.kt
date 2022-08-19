@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.undsf.mc.modsmgr.curseforge.requests.SearchMods
 import com.undsf.mc.modsmgr.curseforge.responses.Mod
+import com.undsf.mc.modsmgr.curseforge.responses.ModFile
 import com.undsf.mc.modsmgr.curseforge.responses.PaginationResponse
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -59,6 +60,11 @@ class ApiClient(
     fun getModById(modId: Int) : Mod? {
         // TODO 暂未实现
         throw NotImplementedError()
+    }
+
+    fun getModFilesById(modId: Int) : List<ModFile> {
+        val modFiles = mutableListOf<ModFile>()
+        return modFiles.toList()
     }
 
     fun getModByClassIdAndSlug(classId: Int, slug: String) : Mod? {

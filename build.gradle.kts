@@ -10,7 +10,7 @@ group = "com.undsf.mc"
 version = "1.0.0-SNAPSHOT"
 
 repositories {
-    // maven("https://maven.aliyun.com/repository/public/")
+    maven("https://maven.aliyun.com/repository/public/")
     google()
     mavenCentral()
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
@@ -27,6 +27,7 @@ kotlin {
         val jvmMain by getting {
             dependencies {
                 implementation(compose.desktop.currentOs)
+                implementation(compose.materialIconsExtended)
                 implementation("com.squareup.okhttp3:okhttp:4.10.0")
                 implementation("com.google.code.gson:gson:2.9.1")
             }

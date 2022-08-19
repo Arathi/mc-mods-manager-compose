@@ -1,7 +1,8 @@
-package com.undsf.mc.modsmgr.ui
+package com.undsf.mc.modsmgr.ui.components
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -22,7 +23,7 @@ class ComboBoxData(
     var itemTextList: SnapshotStateList<String> = mutableStateListOf(),
     var itemValueList: SnapshotStateList<Any> = mutableStateListOf(),
     var defaultText: String = "请选择",
-    var width: Dp = 100.dp,
+    var width: Dp? = null,
     var selectedIndex: Int = -1
 ) {
     constructor(items: Map<String, Any>, defaultText: String = "请选择", width: Dp = 100.dp, selectedIndex: Int = -1) : this(
@@ -54,7 +55,9 @@ class ComboBoxData(
 }
 
 @Composable
-fun ComboBox(bind: MutableState<ComboBoxData>, onSelectedIndexChanged: (Int, String, Any) -> Unit) {
+fun ComboBox(bind: MutableState<ComboBoxData>,
+             onSelectedIndexChanged: (Int, String, Any) -> Unit,
+             modifier: Modifier = Modifier.padding(end = 10.dp)) {
     val expended = remember { mutableStateOf(false) }
 
     fun expend() {
@@ -67,7 +70,7 @@ fun ComboBox(bind: MutableState<ComboBoxData>, onSelectedIndexChanged: (Int, Str
         expended.value = false
     }
 
-    Row(modifier = Modifier.padding(end = 10.dp)) {
+    Box(modifier = modifier) {
         Row(modifier = Modifier.border(1.dp, color = Color.Gray)) {
             val selectedIndex = bind.value.selectedIndex
             val itemAmount = bind.value.itemTextList.size
@@ -78,10 +81,14 @@ fun ComboBox(bind: MutableState<ComboBoxData>, onSelectedIndexChanged: (Int, Str
                 bind.value.defaultText
             }
 
+            val textModifier = Modifier.clickable(true, onClick = ::expend)
+            if (bind.value.width != null) {
+                textModifier.width(bind.value.width!!)
+            }
+
             Text(
                 displayText,
-                modifier = Modifier.clickable(true, onClick = ::expend)
-                    .width(bind.value.width)
+                modifier = textModifier
             )
 
             Icon(
